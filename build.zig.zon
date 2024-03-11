@@ -1,0 +1,5 @@
+.{
+    .name = "gap_buffer",
+    .version = "0.1.0-alpha",
+    .paths = .{ "build.zig", "build.zig.zon", "src" },
+}
