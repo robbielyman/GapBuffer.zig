@@ -1,0 +1,36 @@
+* GapBuffer.zig
+
+A gap buffer is like a =std.ArrayList=, except that rather than having one contiguous block of items, there are two, with a moveable “gap” between them. Although moving the gap requires a copy, insertions and deletions at either side of the gap become O(1) operations.
+
+This repository implements managed, unmanaged and optionally aligned versions of =GapBuffer(T)=. The API is directly inspired by =std.ArrayList=. The main differences are “Before” and “After” versions of operations that operate or affect the gap—“Before” operations will add or remove elements before the gap. There are also convenience functions for translating a “logical” index into an offset, an element, or a pointer from the buffer,
+allowing the user to be largely agnostic about the location of the gap.
+
+To add this package to your project, pick a commit hash =<hash>= and run this:
+
+#+begin_src bash
+$ zig fetch --save https://github.com/ryleelyman/GapBuffer.zig/archive/<hash>.tar.gz
+#+end_src
+
+Then in your =build.zig= you can add this:
+
+#+begin_src zig
+const gap_buffer = b.dependency("gap_buffer", .{
+    .target = target,
+    .optimize = optimize,
+});
+const gb = gap_buffer.module("gap_buffer");
+
+// For whatever you're building; in this case let's assume it's called exe.
+exe.root_module.addImport("gap_buffer", gb);
+#+end_src
+
+and in your source code:
+
+#+begin_src zig
+// import
+const gb = @import("gap_buffer");
+
+// and use it something like this...
+var buffer = gb.GapBuffer(u8).init(allocator);
+#+end_src
+
