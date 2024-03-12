@@ -5,6 +5,8 @@ A gap buffer is like a =std.ArrayList=, except that rather than having one conti
 This repository implements managed, unmanaged and optionally aligned versions of =GapBuffer(T)=. The API is directly inspired by =std.ArrayList=. The main differences are “Before” and “After” versions of operations that operate or affect the gap—“Before” operations will add or remove elements before the gap. There are also convenience functions for translating a “logical” index into an offset, an element, or a pointer from the buffer,
 allowing the user to be largely agnostic about the location of the gap.
 
+Also implemented is a “struct of arrays” transform of =GapBuffer(T)= where =T= is a struct or tagged union type, =MultiGapBuffer(T)=.
+
 To add this package to your project, pick a commit hash =<hash>= and run this:
 
 #+begin_src bash
