@@ -148,7 +148,7 @@ pub fn GapBufferAligned(comptime T: type, comptime alignment: ?u29) type {
             const slice_len = self.realLength() + 1;
             const new_memory = try self.allocator.alignedAlloc(T, alignment, slice_len);
             @memcpy(new_memory[0..self.items.len], self.items);
-            @memcpy(new_memory[self.items.len..slice_len - 1], self.secondHalf());
+            @memcpy(new_memory[self.items.len .. slice_len - 1], self.secondHalf());
             @memset(old_memory, undefined);
             new_memory[slice_len - 1] = sentinel;
             @memset(self.items, undefined);
@@ -287,8 +287,8 @@ pub fn GapBufferAligned(comptime T: type, comptime alignment: ?u29) type {
         /// Invalidates pre-existing pointers to elements at and after `index`.
         /// Invalidates all pre-existing element pointers if capacity must be increased
         /// to accomodate the new elements.
-            pub fn addManyAtBefore(self: *Self, index: usize, count: usize) Allocator.Error![]T {
-                try self.ensureUnusedCapacity(count);
+        pub fn addManyAtBefore(self: *Self, index: usize, count: usize) Allocator.Error![]T {
+            try self.ensureUnusedCapacity(count);
             return addManyAtBeforeAssumeCapacity(self, index, count);
         }
 
@@ -300,7 +300,7 @@ pub fn GapBufferAligned(comptime T: type, comptime alignment: ?u29) type {
         /// Invalidates pre-existing pointers to elements at and after `index`,
         /// and may move the gap.
         /// Asserts that the index is in bounds or equal to the length.
-            pub fn addManyAtBeforeAssumeCapacity(self: *Self, index: usize, count: usize) []T {
+        pub fn addManyAtBeforeAssumeCapacity(self: *Self, index: usize, count: usize) []T {
             assert(self.realLength() + count <= self.capacity);
             self.moveGap(index);
             const res = self.items.ptr[index..][0..count];
@@ -347,7 +347,7 @@ pub fn GapBufferAligned(comptime T: type, comptime alignment: ?u29) type {
         pub fn replaceRangeAfter(self: *Self, start: usize, len: usize, new_items: []const T) Allocator.Error!void {
             var unmanaged = self.moveToUnmanaged();
             defer self.* = unmanaged.toManaged(self.allocator);
-            return unmanaged.replaceRangeBefore(self.allocator, start, len, new_items);
+            return unmanaged.replaceRangeAfter(self.allocator, start, len, new_items);
         }
 
         /// Grows or shrinks the buffer and moves the gap as necessary.
@@ -409,6 +409,23 @@ pub fn GapBufferAligned(comptime T: type, comptime alignment: ?u29) type {
         /// provided that i < self.realLength().
         pub fn realIndex(self: Self, i: usize) usize {
             return if (i < self.items.len) i else self.second_start + (i - self.items.len);
+        }
+
+        /// allocates and returns a copy of the items within the given logical range
+        /// caller owns the memory
+        pub fn dupeLogicalSlice(self: Self, allocator: Allocator, logical_start: usize, len: usize) Allocator.Error![]T {
+            const new_mem = try allocator.alloc(T, len);
+            const start = self.realIndex(logical_start);
+            if (logical_start == start and start + len > self.items.len) {
+                // our desired logical slice jumps the gap
+                const first_len = self.items.len - start;
+                @memcpy(new_mem[0..first_len], self.items[start..self.items.len]);
+                @memcpy(new_mem[first_len..], self.items.ptr[self.second_start..][0 .. len - first_len]);
+            } else {
+                // our desired logical slice does not jump the gap
+                @memcpy(new_mem, self.items.ptr[start..][0..len]);
+            }
+            return new_mem;
         }
 
         /// Remove the element at index `i`, moving the gap so that it is at index `i`,
@@ -1081,7 +1098,7 @@ pub fn GapBufferAlignedUnmanaged(comptime T: type, comptime alignment: ?u29) typ
         /// The caller owns the returned memory. GapBuffer becomes empty.
         pub fn toOwnedSliceSentinel(self: *Self, allocator: Allocator, comptime sentinel: T) Allocator.Error!SentinelSlice(sentinel) {
             // This addition can never overflow because `self.realLength()` can never occupy the whole address space
-                try self.ensureTotalCapacityPrecise(allocator, self.realLength() + 1);
+            try self.ensureTotalCapacityPrecise(allocator, self.realLength() + 1);
             self.moveGap(self.realLength());
             self.appendAfterAssumeCapacity(sentinel);
             const result = try self.toOwnedSlice(allocator);
@@ -1218,8 +1235,8 @@ pub fn GapBufferAlignedUnmanaged(comptime T: type, comptime alignment: ?u29) typ
         /// Invalidates pre-existing pointers to elements at and after `index`.
         /// Invalidates all pre-existing element pointers if capacity must be increased
         /// to accomodate the new elements.
-            pub fn addManyAtBefore(self: *Self, allocator: Allocator, index: usize, count: usize) Allocator.Error![]T {
-                try self.ensureUnusedCapacity(allocator, count);
+        pub fn addManyAtBefore(self: *Self, allocator: Allocator, index: usize, count: usize) Allocator.Error![]T {
+            try self.ensureUnusedCapacity(allocator, count);
             return addManyAtBeforeAssumeCapacity(self, index, count);
         }
 
@@ -1409,6 +1426,23 @@ pub fn GapBufferAlignedUnmanaged(comptime T: type, comptime alignment: ?u29) typ
         /// provided that i < self.realLength().
         pub fn realIndex(self: Self, i: usize) usize {
             return if (i < self.items.len) i else self.second_start + (i - self.items.len);
+        }
+
+        /// allocates and returns a copy of the items within the given logical range
+        /// caller owns the memory
+        pub fn dupeLogicalSlice(self: Self, allocator: Allocator, logical_start: usize, len: usize) Allocator.Error![]T {
+            const new_mem = try allocator.alloc(T, len);
+            const start = self.realIndex(logical_start);
+            if (logical_start == start and start + len > self.items.len) {
+                // our desired logical slice jumps the gap
+                const first_len = self.items.len - start;
+                @memcpy(new_mem[0..first_len], self.items[start..self.items.len]);
+                @memcpy(new_mem[first_len..], self.items.ptr[self.second_start..][0 .. len - first_len]);
+            } else {
+                // our desired logical slice does not jump the gap
+                @memcpy(new_mem, self.items.ptr[start..][0..len]);
+            }
+            return new_mem;
         }
 
         /// Remove the element at index `i`, moving the gap so that it is at index `i`,
@@ -3024,4 +3058,15 @@ test "return OutOfMemory when capacity would exceed maximum usize integer value"
         try testing.expectError(error.OutOfMemory, buffer.insertSliceBefore(0, items));
         try testing.expectError(error.OutOfMemory, buffer.ensureUnusedCapacity(2));
     }
+}
+
+test "replace range to end" {
+    var buffer = GapBuffer(u8).init(testing.allocator);
+    try buffer.insertSliceAfter(0, "abc");
+    try std.testing.expectEqualStrings("abc", buffer.secondHalf());
+    try buffer.replaceRangeAfter(1, 2, &.{});
+    const slice = try buffer.toOwnedSlice();
+    defer testing.allocator.free(slice);
+    try std.testing.expectEqualStrings("a", slice);
+    
 }

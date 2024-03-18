@@ -70,8 +70,6 @@ pub fn MultiGapBuffer(comptime T: type) type {
             capacity: usize,
 
             pub fn firstHalf(self: Slice, comptime field: Field) []FieldType(field) {
-                const F = FieldType(field);
-                _ = F; // autofix
                 if (self.capacity == 0) {
                     return &.{};
                 }
@@ -80,13 +78,9 @@ pub fn MultiGapBuffer(comptime T: type) type {
             }
 
             pub fn secondHalf(self: Slice, comptime field: Field) []FieldType(field) {
-                const F = FieldType(field);
-                _ = F; // autofix
                 if (self.capacity == 0) {
                     return &.{};
                 }
-                const byte_ptr = self.ptrs[@intFromEnum(field)];
-                _ = byte_ptr; // autofix
                 const casted_ptr = self.getPtr(field);
                 return casted_ptr[self.gap_end..self.capacity];
             }
@@ -97,6 +91,23 @@ pub fn MultiGapBuffer(comptime T: type) type {
 
             pub fn realLength(self: Slice) usize {
                 return self.gap_start + (self.capacity - self.gap_end);
+            }
+
+            /// caller owns the allocated memory.
+            pub fn dupeLogicalSlice(self: Slice, allocator: Allocator, comptime field: Field, logical_start: usize, len: usize) Allocator.Error![]FieldType(field) {
+                const new_mem = try allocator.alloc(FieldType(field), len);
+                const casted_ptr = self.getPtr(field);
+                const start = self.realIndex(logical_start);
+                if (logical_start < self.gap_start and logical_start + len >= self.gap_start) {
+                    // our desired slice jumps the gap
+                    const first_len = self.gap_start - logical_start;
+                    @memcpy(new_mem[0..first_len], casted_ptr[start..self.gap_start]);
+                    @memcpy(new_mem[first_len..], casted_ptr[self.gap_end..][0 .. len - first_len]);
+                } else {
+                    // our desired logical slice does not jump the gap
+                    @memcpy(new_mem, casted_ptr[start..][0..len]);
+                }
+                return new_mem;
             }
 
             pub fn set(self: *Slice, index: usize, elem: T) void {
@@ -437,10 +448,20 @@ pub fn MultiGapBuffer(comptime T: type) type {
 
         /// Remove the specified item from the buffer, shifting items
         /// after it to preserve order.
+        /// Moves the gap to `index`.
         /// This operation is O(1) if the gap does not move.
-        pub fn orderedRemove(self: *Self, index: usize) void {
+        pub fn orderedRemoveAfter(self: *Self, index: usize) void {
             self.moveGap(index);
-            return self.popAfter();
+            _ = self.popAfter();
+        }
+
+        /// Remove the specified item from the buffer, shifting items
+        /// after it to preserve order.
+        /// Moves the gap to `index + 1`.
+        /// This operation is O(1) if the gap does not move.
+        pub fn orderedRemoveBefore(self: *Self, index: usize) void {
+            self.moveGap(index + 1);
+            _ = self.popBefore();
         }
 
         /// Remove the specified item from the buffer, swapping the last
