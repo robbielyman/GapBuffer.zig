@@ -194,6 +194,17 @@ pub fn MultiGapBuffer(comptime T: type) type {
                 self.* = undefined;
             }
 
+            pub fn getField(self: Slice, comptime field: Field, idx: usize) FieldType(field) {
+                const F = FieldType(field);
+                const byte_ptr = self.ptrs[@intFromEnum(field)];
+                const casted_ptr: [*]F = if (@sizeOf(F) == 0)
+                    undefined
+                else
+                    @ptrCast(@alignCast(byte_ptr));
+                const real_idx = self.realIndex(idx);
+                return casted_ptr[real_idx];
+            }
+
             pub fn getPtr(self: Slice, comptime field: Field) [*]FieldType(field) {
                 const F = FieldType(field);
                 const byte_ptr = self.ptrs[@intFromEnum(field)];
@@ -394,7 +405,7 @@ pub fn MultiGapBuffer(comptime T: type) type {
         /// Asserts the buffer has at least one item.
         /// Invalidates pointers to fields of the removed element.
         pub fn popAfter(self: *Self) T {
-            const val = self.get(self.gap_end);
+            const val = self.get(self.gap_start);
             self.gap_end += 1;
             return val;
         }
@@ -402,7 +413,7 @@ pub fn MultiGapBuffer(comptime T: type) type {
         /// Remove and return the last element after the gap from the buffer, or
         /// return `null` if there is none.
         /// Invalidates pointers to fields of the removed element, if any.
-        pub fn popAftereOrNull(self: *Self) ?T {
+        pub fn popAfterOrNull(self: *Self) ?T {
             if (self.gap_end == self.capacity) return null;
             return self.popAfter();
         }
@@ -817,7 +828,7 @@ pub fn MultiGapBuffer(comptime T: type) type {
                     .alignment = fields[i].alignment,
                 };
             break :entry @Type(.{ .Struct = .{
-                .layout = .Extern,
+                .layout = .@"extern",
                 .fields = &entry_fields,
                 .decls = &.{},
                 .is_tuple = false,

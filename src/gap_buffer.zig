@@ -2066,7 +2066,7 @@ pub fn GapBufferAlignedUnmanaged(comptime T: type, comptime alignment: ?u29) typ
 
         /// Remove and return the last element from before the gap
         /// or return `null` if there is none.
-        pub fn popBeforeOrnull(self: *Self) ?T {
+        pub fn popBeforeOrNull(self: *Self) ?T {
             if (self.items.len == 0) return null;
             return self.popBefore();
         }
