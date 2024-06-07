@@ -6,13 +6,13 @@ pub fn build(b: *std.Build) void {
     _ = b.addModule("gap_buffer", .{
         .target = target,
         .optimize = optimize,
-        .root_source_file = .{ .path = "src/root.zig" },
+        .root_source_file = b.path("src/root.zig"),
     });
 
     const tests = b.addTest(.{
         .target = target,
         .optimize = optimize,
-        .root_source_file = .{ .path = "src/root.zig" },
+        .root_source_file = b.path("src/root.zig"),
     });
     const run_tests = b.addRunArtifact(tests);
     const tests_step = b.step("test", "run gap buffer tests");
